@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # code from John Pavlopoulos https://github.com/ipavlopoulos/ndfu/blob/main/src/__init__.py
 def ndfu(input_data, histogram_input=True, normalised=True):
     """The normalized Distance From Unimodality measure
