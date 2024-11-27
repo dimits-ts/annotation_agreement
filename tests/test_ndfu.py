@@ -1,53 +1,62 @@
 import unittest
 import numpy as np
-
-from .. import ndfu
+from ..ndfu import ndfu, _to_hist
 
 
 class TestNDFUFunctions(unittest.TestCase):
 
-    def test_to_hist_basic(self):
-        """Test _to_hist with a simple array"""
-        scores = [1, 2, 2, 3, 3, 3, 4]
-        expected_hist = [1/7, 2/7, 3/7, 1/7]
-        result = ndfu._to_hist(scores, bins_num=4, normed=True)
-        np.testing.assert_almost_equal(result, expected_hist, decimal=6)
+    def test_to_hist_normalized(self):
+        scores = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+        num_bins = 5
+        expected = np.array([1 / 9, 2 / 9, 3 / 9, 2 / 9, 1 / 9])  # Normalized counts
+        result = _to_hist(scores, num_bins=num_bins, normed=True)
+        np.testing.assert_array_almost_equal(result, expected, decimal=5)
 
-    def test_to_hist_non_normalized(self):
-        """Test _to_hist with normalization turned off"""
-        scores = [1, 2, 2, 3, 3, 3, 4]
-        expected_hist = [1, 2, 3, 1]
-        result = ndfu._to_hist(scores, bins_num=4, normed=False)
-        np.testing.assert_array_equal(result, expected_hist)
+    def test_to_hist_not_normalized(self):
+        scores = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+        num_bins = 5
+        expected = np.array([1, 2, 3, 2, 1])  # Raw counts
+        result = _to_hist(scores, num_bins=num_bins, normed=False)
+        np.testing.assert_array_equal(result, expected)
 
-    def test_ndfu_precomputed_histogram(self):
-        """Test ndfu with a precomputed histogram"""
-        hist = np.array([0.1, 0.3, 0.5, 0.1])
-        result = ndfu.ndfu(hist, histogram_input=True, normalised=True)
-        self.assertAlmostEqual(result, 0.4 / 0.5, places=6)
-
-    def test_ndfu_raw_data(self):
-        """Test ndfu with raw data input"""
-        raw_data = [1, 1, 2, 3, 3, 3, 4, 4, 5]
-        result = ndfu.ndfu(raw_data, histogram_input=False, normalised=True)
-        self.assertAlmostEqual(result, 0.222222, places=6)  # Precomputed
-
-    def test_ndfu_unnormalized(self):
-        """Test ndfu with normalization turned off"""
-        hist = np.array([0.1, 0.3, 0.5, 0.1])
-        result = ndfu.ndfu(hist, histogram_input=True, normalised=False)
-        self.assertEqual(result, 0.4)
-
-    def test_ndfu_empty_data(self):
-        """Test ndfu with empty input"""
+    def test_to_hist_empty_scores(self):
         with self.assertRaises(ValueError):
-            ndfu.ndfu([], histogram_input=True)
+            _to_hist([], num_bins=5)
 
-    def test_to_hist_empty_data(self):
-        """Test _to_hist with empty input"""
+    def test_ndfu_uniform_distribution(self):
+        # A uniform distribution should have low nDFU.
+        scores = [1, 2, 3, 4, 5]
+        result = ndfu(scores, num_bins=5)
+        self.assertAlmostEqual(result, 0.0, places=5)
+
+    def test_ndfu_single_peak(self):
+        # A distribution with a single peak
+        scores = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+        result = ndfu(scores, num_bins=5)
+        self.assertAlmostEqual(result, 0.0, places=5)
+
+    def test_ndfu_multimodal_distribution(self):
+        # A clearly multimodal distribution
+        scores = [1, 1, 5, 5]
+        result = ndfu(scores, num_bins=5)
+        self.assertAlmostEqual(result, 1.0)
+
+    def test_ndfu_edge_case_low_bins(self):
+        # Edge case: fewer bins than unique values in data
+        scores = [1, 2, 3, 4, 5]
+        result = ndfu(scores, num_bins=3)
+        self.assertGreaterEqual(result, 0.0)
+
+    def test_ndfu_edge_case_single_bin(self):
+        # Edge case: single bin
+        scores = [1, 2, 3, 4, 5]
+        result = ndfu(scores, num_bins=1)
+        self.assertEqual(result, 0.0)
+
+    def test_ndfu_empty_scores(self):
         with self.assertRaises(ValueError):
-            ndfu._to_hist([], bins_num=3)
+            ndfu([], num_bins=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
