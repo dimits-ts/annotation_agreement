@@ -8,7 +8,7 @@ class TestAposterioriUnimodality(unittest.TestCase):
         """Test with simple grouped annotations where polarization is likely explained."""
         grouped_annotations = np.array([
             [1, 1, 1, 2],
-            [2, 3, 2, 4]
+            [2, 3, 3, 3]
         ])
         result = aposteriori_unimodality(grouped_annotations)
         self.assertIsInstance(result, bool, "The result should be a boolean.")
@@ -27,7 +27,7 @@ class TestAposterioriUnimodality(unittest.TestCase):
         """Test when one group has significantly higher nDFU than the global."""
         grouped_annotations = np.array([
             [1, 1, 1, 2],
-            [2, 4, 2, 2]
+            [3, 4, 3, 3]
         ])
         result = aposteriori_unimodality(grouped_annotations)
         self.assertTrue(result, "Should return True when at least one group explains the polarization.")
