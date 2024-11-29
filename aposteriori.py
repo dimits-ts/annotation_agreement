@@ -23,6 +23,9 @@ def aposteriori_unimodality(
     :rtype: tuple[float, float]
     """
     # combine into flat array
+    if len(grouped_annotations) == 0:
+        raise ValueError("Need at least two groups for grouped_annotations.")
+         
     global_annotations = np.concatenate(grouped_annotations, axis=0)
     global_ndfu = ndfu(global_annotations)
 
