@@ -6,45 +6,45 @@ from ..aposteriori import aposteriori_unimodality, is_significantly_bigger
 class TestAposterioriUnimodality(unittest.TestCase):
     def test_aposteriori_unimodality_basic(self):
         """Test with simple grouped annotations where polarization is likely explained."""
-        grouped_annotations = np.array([
+        grouped_annotations = np.array([[
             [1, 1, 1, 2],
             [2, 3, 3, 3]
-        ])
+        ]])
         result = aposteriori_unimodality(grouped_annotations)
-        self.assertIsInstance(result, bool, "The result should be a boolean.")
-        self.assertTrue(result, "Feature should explain polarization")
+        self.assertIsInstance(result, float, "The result should be a float.")
+        self.assertAlmostEqual(result, 0.0, delta=0.1, msg="The p-value should suggest a strong explanation.")
 
     def test_aposteriori_unimodality_no_explanation(self):
         """Test when no group has significantly higher nDFU than the global nDFU."""
-        grouped_annotations = np.array([
+        grouped_annotations = np.array([[
             [1, 1, 1, 1],
             [1, 1, 1, 1]
-        ])
+        ]])
         result = aposteriori_unimodality(grouped_annotations)
-        self.assertFalse(result, "Should return False when no group explains the polarization.")
+        self.assertAlmostEqual(result, 1.0, delta=0.1, msg="P-value should suggest no explanation.")
     
     def test_aposteriori_unimodality_one_group_significant(self):
         """Test when one group has significantly higher nDFU than the global."""
-        grouped_annotations = np.array([
+        grouped_annotations = np.array([[
             [1, 1, 1, 2],
             [3, 4, 3, 3]
-        ])
+        ]])
         result = aposteriori_unimodality(grouped_annotations)
-        self.assertTrue(result, "Should return True when at least one group explains the polarization.")
+        self.assertLess(result, 0.05, "Should return a p-value suggesting at least one group explains the polarization.")
     
     def test_aposteriori_unimodality_tolerance_handling(self):
         """Test the tolerance parameter affects the outcome."""
-        grouped_annotations = np.array([
+        grouped_annotations = np.array([[
             [1, 1, 1, 1],
             [1.1, 1.1, 1.1, 1.1]
-        ])
+        ]])
         # Low tolerance: Differences are not significant
         result_low_tol = aposteriori_unimodality(grouped_annotations, tol=2)
-        self.assertFalse(result_low_tol, "Low tolerance should result in False.")
+        self.assertAlmostEqual(result_low_tol, 1.0, delta=0.1, msg="Low tolerance should result in no explanation.")
 
         # High tolerance: Differences become significant
         result_high_tol = aposteriori_unimodality(grouped_annotations, tol=10e-10)
-        self.assertTrue(result_high_tol, "High tolerance should result in True.")
+        self.assertLess(result_high_tol, 0.05, "High tolerance should suggest explanation.")
 
 
 class TestIsSignificantlyBigger(unittest.TestCase):
