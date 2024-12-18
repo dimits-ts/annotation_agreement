@@ -1,68 +1,96 @@
 import unittest
 import numpy as np
-from ..aposteriori import aposteriori_unimodality, is_significantly_bigger
+from ..aposteriori import (
+    aposteriori_unimodality,
+    level_aposteriori_unit,
+    level_aposteriori_whole,
+    aposteriori_unit,
+)
 
 
 class TestAposterioriUnimodality(unittest.TestCase):
-    def test_aposteriori_unimodality_basic(self):
-        """Test with simple grouped annotations where polarization is likely explained."""
-        grouped_annotations = np.array([[
-            [1, 1, 1, 2],
-            [2, 3, 3, 3]
-        ]])
-        result = aposteriori_unimodality(grouped_annotations)
-        self.assertIsInstance(result, float, "The result should be a float.")
-        self.assertAlmostEqual(result, 0.0, delta=0.1, msg="The p-value should suggest a strong explanation.")
 
-    def test_aposteriori_unimodality_no_explanation(self):
-        """Test when no group has significantly higher nDFU than the global nDFU."""
-        grouped_annotations = np.array([[
-            [1, 1, 1, 1],
-            [1, 1, 1, 1]
-        ]])
-        result = aposteriori_unimodality(grouped_annotations)
-        self.assertAlmostEqual(result, 1.0, delta=0.1, msg="P-value should suggest no explanation.")
-    
-    def test_aposteriori_unimodality_one_group_significant(self):
-        """Test when one group has significantly higher nDFU than the global."""
-        grouped_annotations = np.array([[
-            [1, 1, 1, 2],
-            [3, 4, 3, 3]
-        ]])
-        result = aposteriori_unimodality(grouped_annotations)
-        self.assertLess(result, 0.05, "Should return a p-value suggesting at least one group explains the polarization.")
-    
-    def test_aposteriori_unimodality_tolerance_handling(self):
-        """Test the tolerance parameter affects the outcome."""
-        grouped_annotations = np.array([[
-            [1, 1, 1, 1],
-            [1.1, 1.1, 1.1, 1.1]
-        ]])
-        # Low tolerance: Differences are not significant
-        result_low_tol = aposteriori_unimodality(grouped_annotations, tol=2)
-        self.assertAlmostEqual(result_low_tol, 1.0, delta=0.1, msg="Low tolerance should result in no explanation.")
+    def setUp(self):
+        # Example annotations and groups for testing
+        self.annotations = [
+            np.array([0.1, 0.2, 0.3, 0.4]),
+            np.array([0.5, 0.6, 0.7, 0.8]),
+        ]
+        self.annotator_group = [
+            np.array(["A", "B", "A", "B"]),
+            np.array(["A", "A", "B", "B"]),
+        ]
 
-        # High tolerance: Differences become significant
-        result_high_tol = aposteriori_unimodality(grouped_annotations, tol=10e-10)
-        self.assertLess(result_high_tol, 0.05, "High tolerance should suggest explanation.")
+    def test_aposteriori_unimodality_valid(self):
+        """Test valid input for aposteriori_unimodality."""
+        result = aposteriori_unimodality(self.annotations, self.annotator_group)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(set(result.keys()), {"A", "B"})
+        for pvalue in result.values():
+            self.assertGreaterEqual(pvalue, 0)
+            self.assertLessEqual(pvalue, 1)
 
+    def test_aposteriori_unimodality_mismatched_lengths(self):
+        """Test input where annotations and annotator_group lengths mismatch."""
+        with self.assertRaises(ValueError):
+            aposteriori_unimodality(self.annotations, self.annotator_group[:-1])
 
-class TestIsSignificantlyBigger(unittest.TestCase):
-    def test_is_significantly_bigger_basic(self):
-        """Test basic comparison logic."""
-        self.assertTrue(is_significantly_bigger(0.6, 0.5, tol=0.01), "Should return True when `a` > `b` significantly.")
-        self.assertFalse(is_significantly_bigger(0.5, 0.6, tol=0.01), "Should return False when `a` < `b`.")
-        self.assertFalse(is_significantly_bigger(0.5, 0.5, tol=0.01), "Should return False when `a` == `b` within tolerance.")
+    def test_aposteriori_unimodality_inconsistent_lengths_within(self):
+        """Test input where annotations and annotator_group lengths mismatch within a comment."""
+        bad_annotator_group = [
+            np.array(["A", "B"]),  # Mismatch length
+            np.array(["A", "A", "B", "B"]),
+        ]
+        with self.assertRaises(ValueError):
+            aposteriori_unimodality(self.annotations, bad_annotator_group)
 
-    def test_is_significantly_bigger_tolerance(self):
-        """Test the effect of tolerance on comparison."""
-        self.assertTrue(is_significantly_bigger(0.6, 0.5, tol=0.05), "Should return True for a difference of 0.1 with tol=0.05.")
-        self.assertFalse(is_significantly_bigger(0.55, 0.5, tol=0.1), "Should return False when difference is within tolerance.")
+    def test_level_aposteriori_whole_zero_difference(self):
+        """Test level_aposteriori_whole with zero difference statistics."""
+        stats = [0.0, 0.0, 0.0]
+        pvalue = level_aposteriori_whole(stats)
+        self.assertEqual(pvalue, 1.0)
 
-    def test_is_significantly_bigger_edge_cases(self):
-        """Test edge cases with extreme or equal values."""
-        self.assertFalse(is_significantly_bigger(1e-10, 1e-10, tol=1e-12), "Should return False for nearly equal values.")
-        self.assertTrue(is_significantly_bigger(1.0, 0.0, tol=0.1), "Should return True for large difference.")
+    def test_level_aposteriori_whole_nonzero_difference(self):
+        """Test level_aposteriori_whole with nonzero differences."""
+        stats = [0.1, 0.2, 0.3]
+        pvalue = level_aposteriori_whole(stats)
+        self.assertGreater(pvalue, 0)
+        self.assertLessEqual(pvalue, 1)
+
+    def test_level_aposteriori_unit_valid(self):
+        """Test level_aposteriori_unit with valid input."""
+        annotations = np.array([0.1, 0.2, 0.3, 0.4])
+        annotator_group = np.array(["A", "B", "A", "B"])
+        level = "A"
+        score = level_aposteriori_unit(annotations, annotator_group, level)
+        self.assertIsInstance(score, float)
+
+    def test_aposteriori_unit_difference(self):
+        """Test aposteriori_unit with valid input to ensure it computes nDFU differences."""
+        global_annotations = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+        level_annotations = np.array([0.1, 0.2, 0.3])
+        result = aposteriori_unit(global_annotations, level_annotations)
+        self.assertIsInstance(result, float)
+
+    def test_aposteriori_unit_no_difference(self):
+        """Test aposteriori_unit when global and level annotations are identical."""
+        annotations = np.array([0.1, 0.2, 0.3, 0.4])
+        result = aposteriori_unit(annotations, annotations)
+        self.assertEqual(result, 0.0)
+
+    def test_edge_case_empty_annotations(self):
+        """Test edge case with empty annotations."""
+        annotations = []
+        annotator_group = []
+        result = aposteriori_unimodality(annotations, annotator_group)
+        self.assertEqual(result, {})
+
+    def test_edge_case_single_group(self):
+        """Test edge case with a single group for all annotations."""
+        annotations = [np.array([0.1, 0.2, 0.3, 0.4])]
+        annotator_group = [np.array(["A", "A", "A", "A"])]
+        result = aposteriori_unimodality(annotations, annotator_group)
+        self.assertEqual(result, {"A": 1.0})
 
 
 if __name__ == "__main__":
