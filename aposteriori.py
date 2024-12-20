@@ -1,4 +1,5 @@
 from typing import Hashable
+import math
 import numpy as np
 import scipy
 
@@ -6,7 +7,7 @@ from .ndfu import ndfu
 
 
 def aposteriori_unimodality(
-    annotations: list[np.ndarray], annotator_group: list[np.ndarray]
+    annotations: list[np.ndarray], annotator_group: list[np.ndarray], sample_ratio: float=0.2
 ) -> dict[Hashable, float]:
     """
     Conducts a statistical test to evaluate whether the polarization of annotations 
@@ -50,7 +51,6 @@ def aposteriori_unimodality(
 
     # Initialize statistics for each group level
     all_annots = []
-    print(annotations)
     for array in annotator_group:
         for key in array:
             all_annots.append(key)
@@ -63,7 +63,7 @@ def aposteriori_unimodality(
     for comment_annotations, comment_annotator_group in zip(annotations, annotator_group):
         for level in np.unique(annotator_group):
             aposteriori_stat = level_aposteriori_unit(
-                comment_annotations, comment_annotator_group, level
+                comment_annotations, comment_annotator_group, level, sample_ratio=sample_ratio
             )
             aposteriori_unit_statistics[level].append(aposteriori_stat)
 
@@ -95,7 +95,7 @@ def level_aposteriori_whole(level_aposteriori_statistics: list[float]) -> float:
 
 
 def level_aposteriori_unit(
-    annotations: np.ndarray, annotator_group: np.ndarray, level: Hashable
+    annotations: np.ndarray, annotator_group: np.ndarray, level: Hashable, sample_ratio: float=0.2
 ) -> float:
     """
     Computes the aposteriori statistic for a specific group within a single comment.
@@ -109,7 +109,12 @@ def level_aposteriori_unit(
         float: The aposteriori statistic for the specified group level.
     """
     level_annotations = annotations[annotator_group == level]
-    aposteriori_score = aposteriori_unit(annotations, level_annotations)
+
+    n_samples = max(math.floor(annotations.shape[0] * sample_ratio), 1)
+    sample_level_annotations = np.random.choice(level_annotations, replace=True, size=n_samples)
+    sample_annotations = np.random.choice(level_annotations, replace=True, size=n_samples)
+    
+    aposteriori_score = aposteriori_unit(sample_annotations, sample_level_annotations)
     return aposteriori_score
 
 
