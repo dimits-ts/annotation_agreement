@@ -49,8 +49,14 @@ def aposteriori_unimodality(
             )
 
     # Initialize statistics for each group level
+    all_annots = []
+    print(annotations)
+    for array in annotator_group:
+        for key in array:
+            all_annots.append(key)
+
     aposteriori_unit_statistics: dict[Hashable, list] = {
-        key: [] for key in np.unique(np.concatenate(annotator_group))
+        key: [] for key in np.unique(all_annots)
     }
 
     # Calculate per-comment statistics for each group level
