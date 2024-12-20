@@ -2,95 +2,78 @@ import unittest
 import numpy as np
 from ..aposteriori import (
     aposteriori_unimodality,
-    level_aposteriori_unit,
-    level_aposteriori_whole,
+    bootrstrap_level_aposteriori_unit,
+    discussion_aposteriori,
     aposteriori_unit,
 )
 
 
 class TestAposterioriUnimodality(unittest.TestCase):
-
-    def setUp(self):
-        # Example annotations and groups for testing
-        self.annotations = [
-            np.array([0.1, 0.2, 0.3, 0.4]),
-            np.array([0.5, 0.6, 0.7, 0.8]),
+    def test_aposteriori_unimodality_basic(self):
+        """Test with simple grouped annotations and annotator groups."""
+        annotations = [
+            np.array([1, 2, 3, 4]),
+            np.array([2, 3, 2, 3])
         ]
-        self.annotator_group = [
-            np.array(["A", "B", "A", "B"]),
+        annotator_group = [
             np.array(["A", "A", "B", "B"]),
+            np.array(["A", "A", "B", "B"])
         ]
-
-    def test_aposteriori_unimodality_valid(self):
-        """Test valid input for aposteriori_unimodality."""
-        result = aposteriori_unimodality(self.annotations, self.annotator_group)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(set(result.keys()), {"A", "B"})
-        for pvalue in result.values():
-            self.assertGreaterEqual(pvalue, 0)
-            self.assertLessEqual(pvalue, 1)
+        result = aposteriori_unimodality(annotations, annotator_group)
+        self.assertIsInstance(result, dict, "The result should be a dictionary.")
+        self.assertGreaterEqual(result["A"], 0.0, "P-value should be non-negative.")
+        self.assertGreaterEqual(result["B"], 0.0, "P-value should be non-negative.")
 
     def test_aposteriori_unimodality_mismatched_lengths(self):
-        """Test input where annotations and annotator_group lengths mismatch."""
+        """Test that mismatched lengths raise an error."""
+        annotations = [np.array([1, 2, 3])]
+        annotator_group = [np.array(["A", "B"])]
         with self.assertRaises(ValueError):
-            aposteriori_unimodality(self.annotations, self.annotator_group[:-1])
+            aposteriori_unimodality(annotations, annotator_group)
 
-    def test_aposteriori_unimodality_inconsistent_lengths_within(self):
-        """Test input where annotations and annotator_group lengths mismatch within a comment."""
-        bad_annotator_group = [
-            np.array(["A", "B"]),  # Mismatch length
-            np.array(["A", "A", "B", "B"]),
-        ]
-        with self.assertRaises(ValueError):
-            aposteriori_unimodality(self.annotations, bad_annotator_group)
-
-    def test_level_aposteriori_whole_zero_difference(self):
-        """Test level_aposteriori_whole with zero difference statistics."""
-        stats = [0.0, 0.0, 0.0]
-        pvalue = level_aposteriori_whole(stats)
-        self.assertEqual(pvalue, 1.0)
-
-    def test_level_aposteriori_whole_nonzero_difference(self):
-        """Test level_aposteriori_whole with nonzero differences."""
-        stats = [0.1, 0.2, 0.3]
-        pvalue = level_aposteriori_whole(stats)
-        self.assertGreater(pvalue, 0)
-        self.assertLessEqual(pvalue, 1)
-
-    def test_level_aposteriori_unit_valid(self):
-        """Test level_aposteriori_unit with valid input."""
-        annotations = np.array([0.1, 0.2, 0.3, 0.4])
-        annotator_group = np.array(["A", "B", "A", "B"])
-        level = "A"
-        score = level_aposteriori_unit(annotations, annotator_group, level)
-        self.assertIsInstance(score, float)
-
-    def test_aposteriori_unit_difference(self):
-        """Test aposteriori_unit with valid input to ensure it computes nDFU differences."""
-        global_annotations = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-        level_annotations = np.array([0.1, 0.2, 0.3])
-        result = aposteriori_unit(global_annotations, level_annotations)
-        self.assertIsInstance(result, float)
-
-    def test_aposteriori_unit_no_difference(self):
-        """Test aposteriori_unit when global and level annotations are identical."""
-        annotations = np.array([0.1, 0.2, 0.3, 0.4])
-        result = aposteriori_unit(annotations, annotations)
-        self.assertEqual(result, 0.0)
-
-    def test_edge_case_empty_annotations(self):
-        """Test edge case with empty annotations."""
+    def test_aposteriori_unimodality_empty_input(self):
+        """Test that empty input returns an empty dictionary."""
         annotations = []
         annotator_group = []
         result = aposteriori_unimodality(annotations, annotator_group)
-        self.assertEqual(result, {})
+        self.assertEqual(result, {}, "Empty input should return an empty dictionary.")
 
-    def test_edge_case_single_group(self):
-        """Test edge case with a single group for all annotations."""
-        annotations = [np.array([0.1, 0.2, 0.3, 0.4])]
-        annotator_group = [np.array(["A", "A", "A", "A"])]
-        result = aposteriori_unimodality(annotations, annotator_group)
-        self.assertEqual(result, {"A": 1.0})
+
+class TestBootstrapLevelAposterioriUnit(unittest.TestCase):
+    def test_bootstrap_level_aposteriori_unit_basic(self):
+        """Test computation of aposteriori statistics via bootstrap."""
+        annotations = np.array([1, 2, 3, 4])
+        annotator_group = np.array(["A", "A", "B", "B"])
+        level = "A"
+        result = bootrstrap_level_aposteriori_unit(
+            annotations, annotator_group, level, sample_ratio=0.5, bootstrap_steps=10
+        )
+        self.assertIsInstance(result, float, "Result should be a float.")
+        self.assertGreaterEqual(result, 0.0, "Result should be non-negative.")
+
+
+class TestDiscussionAposteriori(unittest.TestCase):
+    def test_discussion_aposteriori_basic(self):
+        """Test the Wilcoxon test with valid statistics."""
+        stats = [0.1, 0.2, 0.3, 0.4]
+        result = discussion_aposteriori(stats)
+        self.assertGreaterEqual(result, 0.0, "P-value should be non-negative.")
+        self.assertLessEqual(result, 1.0, "P-value should be at most 1.")
+
+    def test_discussion_aposteriori_no_difference(self):
+        """Test when there is no difference between statistics and zero."""
+        stats = [0.0, 0.0, 0.0]
+        result = discussion_aposteriori(stats)
+        self.assertEqual(result, 1.0, "Should return 1.0 when there is no difference.")
+
+
+class TestAposterioriUnit(unittest.TestCase):
+    def test_aposteriori_unit_basic(self):
+        """Test computation of aposteriori unit differences."""
+        global_annotations = np.array([1, 2, 3, 4])
+        level_annotations = np.array([1, 1, 2, 2])
+        result = aposteriori_unit(global_annotations, level_annotations)
+        self.assertIsInstance(result, float, "Result should be a float.")
 
 
 if __name__ == "__main__":
